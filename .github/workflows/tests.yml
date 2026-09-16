@@ -24,9 +24,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # Même version majeure que celle utilisée pour la mise en production.
           node-version: 24
@@ -52,7 +52,7 @@ jobs:
 
       - name: Conserver le rapport en cas d'échec
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: rapport-playwright
           path: |
