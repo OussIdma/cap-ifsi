@@ -2,8 +2,15 @@ import { defineConfig, devices } from '@playwright/test'
 
 /**
  * Tests de parcours dans un vrai navigateur, sur ordinateur et sur téléphone.
- * Le serveur de développement est démarré automatiquement.
+ *
+ * Par défaut, la configuration construit l'application et sert `dist` en local.
+ * En posant `E2E_BASE_URL`, les mêmes tests s'exécutent contre une adresse déjà
+ * en ligne — une mise en production, par exemple — sans serveur local :
+ *
+ *   E2E_BASE_URL=https://exemple.vercel.app npm run test:e2e
  */
+const remote = process.env.E2E_BASE_URL
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -12,7 +19,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: remote ?? 'http://localhost:4173',
     trace: 'off',
   },
   projects: [
@@ -26,10 +33,13 @@ export default defineConfig({
       use: { ...devices['Pixel 5'], viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true },
     },
   ],
-  webServer: {
-    command: 'npm run build && npm run preview -- --port 4173 --strictPort',
-    port: 4173,
-    reuseExistingServer: false,
-    timeout: 180_000,
-  },
+  // Aucun serveur local à démarrer lorsqu'on teste une adresse déjà en ligne.
+  webServer: remote
+    ? undefined
+    : {
+        command: 'npm run build && npm run preview -- --port 4173 --strictPort',
+        port: 4173,
+        reuseExistingServer: false,
+        timeout: 180_000,
+      },
 })

@@ -4,6 +4,8 @@ Application de préparation aux épreuves d’entrée en IFSI par la voie de la
 formation professionnelle continue. Elle fonctionne sur téléphone et sur
 ordinateur, sans compte, sans abonnement et sans appel à un service d’IA.
 
+**Démonstration en ligne : <https://cap-ifsi.vercel.app/>**
+
 > ### ⚠️ Avertissement : contenus non relus par un professionnel
 >
 > Ce dépôt est publié comme **projet de démonstration technique**.
@@ -182,6 +184,7 @@ application vide** (voir la section 5).
 | `npm run preview` | Sert `dist` en local |
 | `npm test` | Tests unitaires (moteur, contenus, stockage) |
 | `npm run test:e2e` | Tests de parcours en navigateur réel (ordinateur + téléphone 360 px) |
+| `E2E_BASE_URL=… npm run test:e2e` | Les mêmes tests contre une adresse déjà en ligne |
 | `npm run test:all` | Les deux |
 | `npm run tailscale` | Publie l’application sur le tailnet Tailscale et affiche l’adresse |
 | `npm run tailscale:stop` | Arrête la publication HTTPS |
