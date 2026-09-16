@@ -1,0 +1,11 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.DS_Store
+.env
+.env.*
+
+# Documents de travail personnels, volontairement non publiés
+Kit_Prepa_IFSI_2027/

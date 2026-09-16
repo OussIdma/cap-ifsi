@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Service optionnel : garde l'application disponible sur le tailnet sans
+  laisser un terminal ouvert, en mode HTTP.
+
+  Inutile si la fonctionnalité « Serve » est activée sur le tailnet :
+  `tailscale serve --bg` persiste déjà de lui-même, en HTTPS.
+
+  Installation (à faire soi-même, rien n'est installé automatiquement) :
+
+    cd /chemin/vers/le/projet/app
+    sed "s|__DIR__|$(pwd)|g" scripts/prepa-ifsi.plist.example \
+      > ~/Library/LaunchAgents/local.prepa-ifsi.plist
+    launchctl load ~/Library/LaunchAgents/local.prepa-ifsi.plist
+
+  Désinstallation :
+
+    launchctl unload ~/Library/LaunchAgents/local.prepa-ifsi.plist
+    rm ~/Library/LaunchAgents/local.prepa-ifsi.plist
+
+  Journal : /tmp/prepa-ifsi.log
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>local.prepa-ifsi</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>/bin/sh</string>
+      <string>-lc</string>
+      <string>cd __DIR__ &amp;&amp; npm run tailscale -- --http</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__DIR__</string>
+
+    <!-- Redémarre si le processus s'arrête, et attend que le réseau soit prêt. -->
+    <key>KeepAlive</key>
+    <dict>
+      <key>SuccessfulExit</key>
+      <false/>
+      <key>NetworkState</key>
+      <true/>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/prepa-ifsi.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/prepa-ifsi.log</string>
+  </dict>
+</plist>

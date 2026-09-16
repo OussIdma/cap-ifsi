@@ -1,0 +1,107 @@
+/* ---------------------------------------------------------------------------
+   Identité visuelle — Prépa IFSI
+   Fond clair légèrement chaud, textes foncés, un seul accent bleu-vert.
+   Aucune police distante : l'application doit fonctionner sans réseau.
+--------------------------------------------------------------------------- */
+
+:root {
+  /* Fonds et surfaces */
+  --bg: #fbf7f2;
+  --surface: #ffffff;
+  --surface-alt: #f6efe7;
+  --surface-sunk: #f1e9e0;
+
+  /* Textes */
+  --ink: #221f1c;
+  --ink-soft: #544e47;
+  --ink-faint: #7b736a;
+  --ink-on-accent: #ffffff;
+
+  /* Traits */
+  --line: #e5dbd0;
+  --line-strong: #d3c5b6;
+
+  /* Accent bleu-vert */
+  --accent: #1f6f6a;
+  --accent-strong: #165551;
+  --accent-soft: #e2efed;
+  --accent-line: #b9d8d4;
+
+  /* États — toujours doublés d'un mot et d'une icône, jamais la couleur seule */
+  --ok: #2b6b4c;
+  --ok-soft: #e4f0e8;
+  --ok-line: #bcd9c7;
+  --warn: #8a5712;
+  --warn-soft: #fbf0dc;
+  --warn-line: #e8d3a8;
+  --alert: #9e3a2c;
+  --alert-soft: #fbe8e4;
+  --alert-line: #ecc4bb;
+
+  /* Typographie */
+  --font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-reading: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Échelle de texte — pilotée par les réglages */
+  --scale: 1;
+  --text-base: calc(18px * var(--scale));
+  --text-sm: calc(15.5px * var(--scale));
+  --text-xs: calc(13.5px * var(--scale));
+  --text-lg: calc(21px * var(--scale));
+  --text-xl: calc(25px * var(--scale));
+  --text-2xl: calc(31px * var(--scale));
+
+  /* Espacements */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* Formes */
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+  --shadow: 0 1px 2px rgba(60, 45, 30, 0.05), 0 6px 18px rgba(60, 45, 30, 0.05);
+  --shadow-soft: 0 1px 2px rgba(60, 45, 30, 0.05);
+
+  /* Largeurs de lecture */
+  --reading: 42rem;
+  --wide: 62rem;
+
+  /* Hauteur minimale des cibles tactiles */
+  --tap: 46px;
+
+  --nav-h: 66px;
+}
+
+/* Contraste renforcé — proposé dans les réglages. */
+:root[data-contrast='fort'] {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-alt: #f2ece5;
+  --ink: #000000;
+  --ink-soft: #33302c;
+  --ink-faint: #4d4842;
+  --line: #a99a89;
+  --line-strong: #6f6355;
+  --accent: #14544f;
+  --accent-strong: #0d3b38;
+  --accent-line: #14544f;
+  --ok: #1d5138;
+  --warn: #6a4109;
+  --alert: #7d2a1f;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
