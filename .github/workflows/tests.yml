@@ -1,0 +1,61 @@
+# Lance l'intégralité des vérifications à chaque poussée et à chaque proposition
+# de modification. Aucun secret n'est nécessaire : l'application ne dépend
+# d'aucun service extérieur, les tests de parcours servent le build en local.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  verifications:
+    name: Types, moteur et parcours navigateur
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Même version majeure que celle utilisée pour la mise en production.
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci
+
+      - name: Vérifier les types
+        run: npm run typecheck
+
+      - name: Tests unitaires (arithmétique, contenus, stockage)
+        run: npx vitest run
+
+      # La version du navigateur suit celle de @playwright/test verrouillée
+      # dans package-lock.json : un test qui passe ici passe en local.
+      - name: Installer Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Tests de parcours (ordinateur 1280 px et téléphone 360 px)
+        run: npm run test:e2e
+
+      - name: Conserver le rapport en cas d'échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-playwright
+          path: |
+            app/playwright-report/
+            app/test-results/
+          retention-days: 7

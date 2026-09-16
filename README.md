@@ -6,6 +6,12 @@ ordinateur, sans compte, sans abonnement et sans appel à un service d’IA.
 
 **Démonstration en ligne : <https://cap-ifsi.vercel.app/>**
 
+[![Tests](https://github.com/OussIdma/cap-ifsi/actions/workflows/tests.yml/badge.svg)](https://github.com/OussIdma/cap-ifsi/actions/workflows/tests.yml)
+
+Le badge ci-dessus reflète une exécution réelle : vérification des types, 228
+tests unitaires, puis 40 parcours dans un vrai navigateur sur 1280 px et
+360 px, à chaque poussée.
+
 > ### ⚠️ Avertissement : contenus non relus par un professionnel
 >
 > Ce dépôt est publié comme **projet de démonstration technique**.
