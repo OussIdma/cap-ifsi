@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { buildSession, describeSession, pickPriority } from './session'
-import { addDays } from './mastery'
+import { buildSession, describeSession, pickPriority, poolFor } from './session'
+import { addDays, applyAttempt } from './mastery'
 import { emptySkillProgress, initialState, type AppState } from '@/store/schema'
-import { getSkill } from '@/content/skills'
-import { templateById } from '@/content/registry'
+import { getSkill, SKILLS } from '@/content/skills'
+import { generate, templateById, templatesFor } from '@/content/registry'
+
+/** Nombre de types de problèmes en dessous duquel on apprend par cœur. */
+const MIN_EXPECTED_POOL = 3
 
 const DAY = '2026-09-16'
 
@@ -175,5 +178,125 @@ describe('phrase d’explication de la séance', () => {
   })
   it('ne promet rien quand il n’y a rien à faire', () => {
     expect(describeSession([])).toMatch(/Aucun contenu/)
+  })
+})
+
+/**
+ * Régression : les séances successives proposaient les mêmes exercices.
+ *
+ * Trois causes cumulées, toutes couvertes ici :
+ *  - certaines compétences n'avaient qu'un ou deux gabarits à leur niveau ;
+ *  - l'index dans le vivier avançait du même pas que le compteur, si bien que
+ *    les mêmes gabarits ressortaient indéfiniment ;
+ *  - le compteur n'avançait qu'à la validation d'une réponse : quitter une
+ *    séance sans répondre redonnait l'énoncé identique.
+ */
+describe('variété des exercices', () => {
+  const render = (ex: unknown): string => {
+    const walk = (b: unknown): string =>
+      b == null
+        ? ''
+        : typeof b === 'string'
+          ? b
+          : Array.isArray(b)
+            ? b.map(walk).join(' ')
+            : typeof b === 'object'
+              ? Object.values(b as Record<string, unknown>).map(walk).join(' ')
+              : String(b)
+    return walk(ex).replace(/\s+/g, ' ').trim()
+  }
+
+  function runSessions(count: number, opts: { skillId?: string; minutes?: number } = {}) {
+    const s = state()
+    s.profile.onboarded = true
+    const enonces: string[] = []
+    const gabarits = new Set<string>()
+    const sessions: string[][] = []
+
+    for (let n = 0; n < count; n++) {
+      s.sessionsStarted += 1
+      const plan = buildSession(s, {
+        minutes: opts.minutes ?? 10,
+        day: DAY,
+        nonce: s.sessionsStarted,
+        ...(opts.skillId ? { skillId: opts.skillId } : {}),
+      })
+      const refs: string[] = []
+      for (const item of plan) {
+        if (item.kind !== 'exercice') continue
+        const ex = generate(item.ref, item.seed!)!
+        enonces.push(render(ex))
+        gabarits.add(item.ref)
+        refs.push(item.ref)
+        s.skills[item.skillId] = applyAttempt(
+          s.skills[item.skillId],
+          { correct: true, hintsUsed: 0, usedAlternative: false, structure: templateById(item.ref)?.structure ?? item.ref },
+          DAY,
+        )
+      }
+      sessions.push(refs)
+    }
+    return { enonces, gabarits, sessions }
+  }
+
+  it('un niveau trop pauvre est complété par les niveaux voisins', () => {
+    // M09 ne comptait qu'un seul gabarit en « Je découvre » : le même exercice
+    // revenait à chaque séance.
+    expect(templatesFor('M09', 'decouverte').length).toBeLessThan(MIN_EXPECTED_POOL)
+    expect(poolFor('M09', 'decouverte').length).toBeGreaterThanOrEqual(MIN_EXPECTED_POOL)
+    for (const skill of SKILLS.filter((sk) => sk.subject === 'calculs')) {
+      if (!templatesFor(skill.id).length) continue
+      const n = poolFor(skill.id, 'decouverte').length
+      expect(n, `${skill.id} : vivier de ${n} gabarit(s)`).toBeGreaterThanOrEqual(
+        Math.min(MIN_EXPECTED_POOL, templatesFor(skill.id).length),
+      )
+    }
+  })
+
+  it('douze séances sur une compétence ne redonnent jamais le même énoncé', () => {
+    const { enonces, gabarits } = runSessions(12, { skillId: 'M01' })
+    expect(enonces.length).toBeGreaterThan(20)
+    // Jamais deux fois de suite le même énoncé.
+    for (let i = 1; i < enonces.length; i++) expect(enonces[i]).not.toBe(enonces[i - 1])
+    // Quelques coïncidences restent possibles — tirer 72 fois dans des viviers
+    // de quelques dizaines de variantes en produit statistiquement. Ce qui
+    // doit être exclu, c'est la répétition massive d'avant correction, où la
+    // même paire d'énoncés revenait à chaque séance.
+    const distincts = new Set(enonces).size
+    expect(distincts / enonces.length, `${distincts} énoncés distincts sur ${enonces.length}`).toBeGreaterThan(0.9)
+    expect(gabarits.size, 'trop peu de types de problèmes différents').toBeGreaterThanOrEqual(4)
+  })
+
+  it('ouvrir une séance sans répondre ne redonne pas le même exercice', () => {
+    const s = state()
+    s.profile.onboarded = true
+    const vus: string[] = []
+    // Aucune tentative n'est enregistrée entre les ouvertures : c'est
+    // exactement le cas qui reproduisait l'énoncé à l'identique.
+    for (let n = 0; n < 5; n++) {
+      s.sessionsStarted += 1
+      const plan = buildSession(s, { minutes: 10, skillId: 'M01', day: DAY, nonce: s.sessionsStarted })
+      const first = plan.find((i) => i.kind === 'exercice')!
+      vus.push(render(generate(first.ref, first.seed!)!))
+    }
+    expect(new Set(vus).size).toBe(vus.length)
+  })
+
+  it('un même type de problème ne revient jamais deux fois d’affilée', () => {
+    const { sessions } = runSessions(30, { minutes: 30 })
+    let collages = 0
+    for (const refs of sessions) {
+      for (let i = 1; i < refs.length; i++) if (refs[i] === refs[i - 1]) collages++
+    }
+    expect(collages).toBe(0)
+  })
+
+  it('une séance reste reproductible à numéro de séance égal', () => {
+    // La reprise après fermeture de page en dépend.
+    const s = state()
+    s.profile.onboarded = true
+    const a = buildSession(s, { minutes: 20, day: DAY, nonce: 7 })
+    const b = buildSession(s, { minutes: 20, day: DAY, nonce: 7 })
+    expect(a).toEqual(b)
   })
 })

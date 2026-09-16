@@ -31,6 +31,16 @@ import type { Block, GeneratedExercise, SolutionStep } from './types'
 
 const SEEDS = [1, 2, 3, 7, 11, 23, 42, 101, 512, 4096, 65537, 999983]
 
+/**
+ * Balayage large. Douze graines choisies à la main laissaient passer des cas
+ * rares : `M09-trouver-taux` plantait sur 7 % des graines (un effectif de
+ * personnes non entier) sans qu'aucun test ne le voie. On balaie donc
+ * largement, et on exige une variété minimale — un gabarit qui ne produirait
+ * que quelques énoncés s'apprendrait par cœur.
+ */
+const WIDE_SEEDS = Array.from({ length: 240 }, (_, i) => ((i + 1) * 2654435761) % 4294967296)
+const MIN_VARIANTS = 6
+
 /** Réponse canonique attendue, telle qu'une utilisatrice l'écrirait. */
 function canonical(spec: AnswerSpec): string | string[] {
   switch (spec.kind) {
@@ -229,6 +239,33 @@ describe('gabarits d’exercices de calculs', () => {
       }
     },
   )
+
+  it('ne plantent sur aucune graine, et restent valides sur 240 graines', () => {
+    const casses: string[] = []
+    for (const t of EXERCISE_TEMPLATES) {
+      for (const seed of WIDE_SEEDS) {
+        try {
+          checkExercise(generate(t.id, seed)!, `${t.id} (graine ${seed})`)
+        } catch (e) {
+          casses.push(`${t.id} @ ${seed} : ${String((e as Error).message).split('\n')[0]}`)
+          break
+        }
+      }
+    }
+    expect(casses, `gabarits en échec :\n${casses.join('\n')}`).toEqual([])
+  })
+
+  it('produisent assez de variantes pour ne pas s’apprendre par cœur', () => {
+    const pauvres: string[] = []
+    for (const t of EXERCISE_TEMPLATES) {
+      const variantes = new Set(WIDE_SEEDS.map((s) => dump(generate(t.id, s))))
+      if (variantes.size < MIN_VARIANTS) pauvres.push(`${t.id} : ${variantes.size}`)
+    }
+    expect(
+      pauvres,
+      `gabarits produisant moins de ${MIN_VARIANTS} énoncés distincts sur ${WIDE_SEEDS.length} graines :\n${pauvres.join('\n')}`,
+    ).toEqual([])
+  })
 
   it('sont reproductibles : même graine, même énoncé', () => {
     for (const t of EXERCISE_TEMPLATES) {

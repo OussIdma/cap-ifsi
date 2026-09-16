@@ -129,8 +129,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const day = today()
         // Recalcul doux : après une absence, on n'impose pas toute la dette.
         const skills = softenBacklog(s.skills, day, 2)
-        const base = { ...s, skills }
-        const items = buildSession(base, { ...opts, day })
+        // Chaque ouverture fait avancer le numéro de séance : deux séances
+        // successives ne proposent pas les mêmes énoncés, même si la première
+        // a été quittée sans répondre.
+        const sessionsStarted = s.sessionsStarted + 1
+        const base = { ...s, skills, sessionsStarted }
+        const items = buildSession(base, { ...opts, day, nonce: sessionsStarted })
         const session: ActiveSession = {
           id: `${day}-${Date.now()}`,
           startedAt: new Date().toISOString(),
@@ -150,8 +154,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (s.session && !s.session.finishedAt) return s
         const day = today()
         const skills = softenBacklog(s.skills, day, 2)
-        const base = { ...s, skills }
-        const items = buildSession(base, { ...opts, day })
+        const sessionsStarted = s.sessionsStarted + 1
+        const base = { ...s, skills, sessionsStarted }
+        const items = buildSession(base, { ...opts, day, nonce: sessionsStarted })
         return {
           ...base,
           session: {

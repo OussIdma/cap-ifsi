@@ -57,6 +57,7 @@ export function migrate(raw: unknown): { state: AppState; from: number } {
     },
     activeDays: asArray(data.activeDays),
     sheetsRead: asArray(data.sheetsRead),
+    sessionsStarted: typeof data.sessionsStarted === 'number' ? data.sessionsStarted : 0,
     version: SCHEMA_VERSION,
   }
 
@@ -72,6 +73,13 @@ export function migrate(raw: unknown): { state: AppState; from: number } {
       usedAlternative: a.usedAlternative ?? false,
       structure: a.structure ?? 'inconnue',
     }))
+  }
+
+  // v3 → v4 : compteur de séances, pour varier les énoncés d'une séance à
+  // l'autre. On repart du nombre de séances déjà faites plutôt que de zéro,
+  // afin de ne pas reproposer ce qui vient d'être vu.
+  if (from < 4) {
+    state.sessionsStarted = state.sessionsStarted || state.activeDays.length
   }
 
   // Champs obligatoires reconstruits si absents.

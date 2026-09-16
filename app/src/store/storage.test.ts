@@ -129,6 +129,18 @@ describe('migrations', () => {
     expect(Array.isArray(state.candidature.confirmedDates)).toBe(true)
   })
 
+  it('v3 → v4 : le compteur de séances repart du nombre de jours actifs', () => {
+    // Sans lui, la première séance après mise à jour reproposerait ce qui vient
+    // d'être vu. On ne repart donc pas de zéro.
+    const { state } = migrate({ version: 3, activeDays: ['2026-09-10', '2026-09-11'] })
+    expect(state.sessionsStarted).toBe(2)
+  })
+
+  it('une sauvegarde v4 conserve son compteur de séances', () => {
+    const { state } = migrate({ version: 4, sessionsStarted: 37 })
+    expect(state.sessionsStarted).toBe(37)
+  })
+
   it('refuse une entrée qui n’est pas un objet', () => {
     expect(() => migrate(null)).toThrow()
     expect(() => migrate('texte')).toThrow()

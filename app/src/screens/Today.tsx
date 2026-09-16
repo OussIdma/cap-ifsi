@@ -23,8 +23,10 @@ export function Today() {
   const running = state.session && !state.session.finishedAt ? state.session : null
   const doneToday = running ? running.index : 0
 
+  // Même numéro de séance que celui qu'emploiera `startSession`, pour que le
+  // résumé annoncé corresponde à la séance réellement construite.
   const preview = useMemo(
-    () => buildSession(state, { minutes, day }),
+    () => buildSession(state, { minutes, day, nonce: state.sessionsStarted + 1 }),
     [state, minutes, day],
   )
   const priority = useMemo(() => pickPriority(state, day), [state, day])

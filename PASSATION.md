@@ -11,7 +11,7 @@ L’application est **utilisable de bout en bout** dans les quatre matières :
 première ouverture → séance → erreur → explication différente → nouvel exercice
 → sauvegarde → fermeture → reprise → bilan.
 
-Vérifié par 228 tests unitaires et 40 tests de parcours en navigateur réel
+Vérifié par 237 tests unitaires et 42 tests de parcours en navigateur réel
 (ordinateur 1280 px et téléphone 360 px), tous passants au moment de la
 rédaction de ce document.
 
@@ -183,6 +183,17 @@ dans le code, et rien ne les promet.
 - **Ne jamais confier un calcul à un modèle.** Toute l’arithmétique passe par
   `src/engine/rational.ts`. Introduire un `Number` dans un calcul de correction
   réintroduirait les erreurs de flottant.
+- **Un énoncé ne doit jamais pouvoir s'apprendre par cœur.** Trois mécanismes
+  s'y opposent, et chacun a son test : le vivier d'un niveau est complété par
+  les niveaux voisins quand il compte moins de trois types de problèmes
+  (`poolFor`) ; les exercices sont tirés sans remise et non par index modulaire
+  (`drawer`) ; le numéro de séance entre dans la graine, sinon quitter une
+  séance sans répondre redonnait l'énoncé identique. Retirer l'un des trois
+  ramène le défaut.
+- **Un gabarit doit rester valide sur n'importe quelle graine.** Le test de
+  contenu balaie 240 graines : douze graines choisies à la main laissaient
+  passer un plantage sur 7 % des cas et deux exercices dont la réponse exacte
+  était un décimal illimité, donc impossible à saisir.
 - **Un piège déclaré ne doit jamais coïncider avec la bonne réponse.** Le filet
   de sécurité `src/content/safety.ts` les retire à l’affichage, et le test de
   contenu échoue si un gabarit en produit un. Les deux doivent rester en place.

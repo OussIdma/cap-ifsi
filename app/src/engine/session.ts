@@ -11,6 +11,12 @@
  *  5. Le niveau suit l'état : « Je découvre » si c'est fragile, « Je m'entraîne »
  *     si c'est à consolider, « Je me prépare à l'épreuve » si c'est consolidé.
  *  6. Rien n'est proposé si le contenu n'est pas publié.
+ *  7. Les exercices d'une séance sont tirés sans remise : un même type de
+ *     problème ne revient qu'une fois le vivier épuisé, et l'ordre change
+ *     d'une séance à l'autre.
+ *  8. Un niveau qui compte trop peu de types de problèmes est complété par les
+ *     niveaux voisins. Mieux vaut un exercice un peu plus difficile qu'un
+ *     énoncé déjà vu trois fois : révisé par cœur, il ne prouve plus rien.
  */
 
 import {
@@ -23,9 +29,10 @@ import {
   writtenFor,
 } from '@/content/registry'
 import { getSkill, orderedSkills, SKILLS } from '@/content/skills'
-import type { Level, Subject } from '@/content/types'
+import type { ExerciseTemplate, Level, Subject } from '@/content/types'
 import type { AppState, SessionItem, SkillProgress } from '@/store/schema'
 import { isDue, stateRank, today } from './mastery'
+import { createRng } from './rng'
 
 const MAX_REVIEWS_PER_SESSION = 2
 
@@ -42,6 +49,68 @@ export type SessionOptions = {
    */
   diagnostic?: boolean
   day?: string
+  /**
+   * Numéro d'ordre de la séance. Il entre dans le calcul des graines, si bien
+   * qu'ouvrir une nouvelle séance sans avoir répondu ne redonne pas le même
+   * énoncé. La graine retenue est enregistrée dans la séance : un rechargement
+   * de page retrouve donc exactement l'exercice en cours.
+   */
+  nonce?: number
+}
+
+/**
+ * Nombre minimal de types de problèmes qu'un niveau doit proposer. En dessous,
+ * on complète avec les niveaux voisins : certaines compétences n'ont qu'un
+ * seul gabarit en « Je découvre », ce qui faisait revenir le même énoncé à
+ * chaque séance.
+ */
+const MIN_POOL = 3
+
+const LEVEL_ORDER: readonly Level[] = ['decouverte', 'entrainement', 'epreuve']
+
+/** Gabarits du niveau demandé, complétés par les niveaux voisins si besoin. */
+export function poolFor(skillId: string, level: Level): ExerciseTemplate[] {
+  const out = [...templatesFor(skillId, level)]
+  if (out.length >= MIN_POOL) return out
+  const i = LEVEL_ORDER.indexOf(level)
+  // On élargit vers les niveaux les plus proches d'abord, puis les plus
+  // éloignés : certaines compétences n'ont aucun gabarit au niveau demandé.
+  const others = LEVEL_ORDER.filter((l) => l !== level).sort(
+    (a, b) => Math.abs(LEVEL_ORDER.indexOf(a) - i) - Math.abs(LEVEL_ORDER.indexOf(b) - i),
+  )
+  for (const other of others) {
+    for (const t of templatesFor(skillId, other)) {
+      if (!out.some((x) => x.id === t.id)) out.push(t)
+      if (out.length >= MIN_POOL) return out
+    }
+  }
+  return out.length ? out : [...templatesFor(skillId)]
+}
+
+/**
+ * Tirage sans remise, déterministe : on mélange le vivier, on le distribue,
+ * puis on le remélange une fois épuisé. Deux séances successives ne proposent
+ * donc ni la même suite ni deux fois le même type de problème d'affilée.
+ */
+function drawer<T>(items: readonly T[], seed: number): () => T {
+  let bag: T[] = []
+  let round = 0
+  let last: T | undefined
+  return () => {
+    if (!bag.length) {
+      bag = createRng((seed + round * 0x9e3779b9) >>> 0).shuffle(items)
+      round++
+      // Jointure entre deux mélanges : sans cela, le dernier tiré pouvait
+      // ressortir aussitôt en tête du mélange suivant.
+      if (bag.length > 1 && bag[0] === last) {
+        const tmp = bag[0]!
+        bag[0] = bag[1]!
+        bag[1] = tmp
+      }
+    }
+    last = bag.shift()!
+    return last
+  }
 }
 
 const levelFor = (p: SkillProgress | undefined): Level => {
@@ -134,6 +203,7 @@ function itemsForSkill(
   reason: SessionItem['reason'],
   budget: number,
   diagnostic = false,
+  nonce = 0,
 ): SessionItem[] {
   const p = state.skills[skillId]
   const level = levelFor(p)
@@ -158,14 +228,17 @@ function itemsForSkill(
     used += 150
   }
 
-  const counter = (p?.seenCounter ?? 0) + items.length
+  // Le numéro de séance entre dans le compteur : abandonner une séance sans
+  // répondre, puis en rouvrir une, ne redonne pas le même énoncé. Sans lui, le
+  // compteur n'avançait qu'à la validation d'une réponse.
+  const counter = (p?.seenCounter ?? 0) + items.length + nonce * 101
 
   if (subject === 'calculs') {
-    let pool = templatesFor(skillId, level)
-    if (!pool.length) pool = templatesFor(skillId)
+    const pool = poolFor(skillId, level)
+    const draw = drawer(pool, seedFor(`${skillId}:gabarits`, counter))
     let i = 0
     while (used < budget && pool.length) {
-      const t = pool[(counter + i) % pool.length]!
+      const t = draw()
       items.push({
         id: `${t.id}-${counter + i}`,
         kind: 'exercice',
@@ -182,11 +255,18 @@ function itemsForSkill(
       if (i >= pool.length * 2) break
     }
   } else if (subject === 'francais') {
+    // Les micro-exercices de français sont des énoncés fixes, pas des gabarits
+    // : la variété tient entièrement à l'ordre de passage, d'où le tirage sans
+    // remise sur l'ensemble de la compétence quand le niveau en compte peu.
     let pool = frenchFor(skillId, level)
-    if (!pool.length) pool = frenchFor(skillId)
+    if (pool.length < MIN_POOL) {
+      const all = frenchFor(skillId)
+      pool = [...pool, ...all.filter((e) => !pool.some((x) => x.id === e.id))]
+    }
+    const draw = drawer(pool, seedFor(`${skillId}:francais`, counter))
     let i = 0
     while (used < budget && pool.length) {
-      const e = pool[(counter + i) % pool.length]!
+      const e = draw()
       items.push({
         id: `${e.id}-${counter + i}`,
         kind: 'francais',
@@ -219,7 +299,7 @@ function itemsForSkill(
   } else {
     const pool = oralFor(skillId)
     if (pool.length) {
-      const q = pool[counter % pool.length]!
+      const q = drawer(pool, seedFor(`${skillId}:oral`, counter))()
       items.push({
         id: `${q.id}-${counter}`,
         kind: 'oral',
@@ -252,7 +332,7 @@ export function buildSession(state: AppState, opts: SessionOptions): SessionItem
   if (opts.skillId) {
     const skill = getSkill(opts.skillId)
     if (!skill) return []
-    return itemsForSkill(state, skill.id, skill.subject, 'nouveau', budget, opts.diagnostic)
+    return itemsForSkill(state, skill.id, skill.subject, 'nouveau', budget, opts.diagnostic, opts.nonce)
   }
 
   const all = candidates(state, day, opts.subject)
@@ -294,8 +374,13 @@ export function buildSession(state: AppState, opts: SessionOptions): SessionItem
     usedSkills.add(c.skillId)
     if (c.reason === 'revision') reviewsPlaced += 1
     const remaining = budget - used
-    const share = Math.max(120, Math.min(remaining, Math.round(budget / 3)))
-    const produced = itemsForSkill(state, c.skillId, c.subject, c.reason, share, opts.diagnostic)
+    // En bilan, la part est égale entre les compétences retenues : c'est ce qui
+    // permet de couvrir réellement les quatre matières. Le tiers de séance
+    // suffisait à en épuiser le budget dès la troisième compétence.
+    const share = opts.diagnostic
+      ? Math.max(120, Math.min(remaining, Math.floor(budget / Math.max(1, plan.length))))
+      : Math.max(120, Math.min(remaining, Math.round(budget / 3)))
+    const produced = itemsForSkill(state, c.skillId, c.subject, c.reason, share, opts.diagnostic, opts.nonce)
     for (const it of produced) {
       if (used >= budget) break
       items.push(it)
@@ -312,7 +397,7 @@ export function buildSession(state: AppState, opts: SessionOptions): SessionItem
       if (c.reason === 'revision' && reviewsPlaced >= MAX_REVIEWS_PER_SESSION) continue
       usedSkills.add(c.skillId)
       if (c.reason === 'revision') reviewsPlaced += 1
-      const produced = itemsForSkill(state, c.skillId, c.subject, c.reason, budget - used, opts.diagnostic)
+      const produced = itemsForSkill(state, c.skillId, c.subject, c.reason, budget - used, opts.diagnostic, opts.nonce)
       for (const it of produced) {
         if (used >= budget) break
         items.push(it)

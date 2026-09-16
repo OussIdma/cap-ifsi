@@ -9,7 +9,7 @@
 import type { ErrorTag } from '@/engine/answer'
 import type { Level, Subject } from '@/content/types'
 
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 export const STORAGE_KEY = 'prepa-ifsi-2027:v1'
 
 export type MasteryState = 'non-evaluee' | 'fragile' | 'a-consolider' | 'consolidee'
@@ -232,6 +232,12 @@ export type AppState = {
   activeDays: string[]
   /** Fiches lues. */
   sheetsRead: string[]
+  /**
+   * Nombre de séances ouvertes depuis le début. Sert uniquement à varier les
+   * énoncés : sans lui, rouvrir une séance sans avoir répondu redonnait
+   * exactement le même exercice.
+   */
+  sessionsStarted: number
 }
 
 export function initialState(now = new Date()): AppState {
@@ -255,5 +261,6 @@ export function initialState(now = new Date()): AppState {
     candidature: { items: {}, confirmedDates: [], contacts: [] },
     activeDays: [],
     sheetsRead: [],
+    sessionsStarted: 0,
   }
 }

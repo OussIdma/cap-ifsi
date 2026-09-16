@@ -3,7 +3,7 @@
  * pourcentages.
  */
 
-import { addR, cmpR, divR, mulR, rat, roundR, subR, toFractionString, type Rational } from '@/engine/rational'
+import { addR, cmpR, divR, hasFiniteDecimal, mulR, rat, roundR, subR, toFractionString, type Rational } from '@/engine/rational'
 import type { ExerciseTemplate, Lesson } from '../types'
 import { fr, frInt, key, p, vis, warn, lead } from '../blocks'
 
@@ -587,7 +587,12 @@ export const TEMPLATES_M06_M09: ExerciseTemplate[] = [
     generate: (rng) => {
       const den = rng.pick([2, 3, 4, 5])
       const num = rng.int(1, den - 1)
-      const times = rng.int(3, 12)
+      // La question demande une écriture décimale : le résultat doit donc en
+      // avoir une exacte. Sans ce filtre, 1/3 × 7 donnait 2,333… — un énoncé
+      // qu'aucune saisie ne pouvait réussir.
+      const times = rng.pick(
+        [3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter((t) => hasFiniteDecimal(mulR(R(num, den), R(t)))),
+      )
       const result = mulR(R(num, den), R(times))
       return {
         prompt: [p(`Chaque flacon contient ${num}/${den} de litre. On en prépare ${times}.`)],
@@ -854,7 +859,11 @@ export const TEMPLATES_M06_M09: ExerciseTemplate[] = [
     generate: (rng) => {
       const forPeople = rng.pick([4, 6, 8])
       const grams = rng.pick([200, 240, 300, 360, 450])
-      const target = rng.pick([10, 12, 15, 18, 20])
+      // Même exigence : une quantité en grammes doit tomber juste. Sans ce
+      // filtre, 200 g pour 6 personnes portés à 10 donnaient 333,333… g.
+      const target = rng.pick(
+        [10, 12, 15, 18, 20].filter((t) => hasFiniteDecimal(mulR(divR(R(grams), R(forPeople)), R(t)))),
+      )
       const result = mulR(divR(R(grams), R(forPeople)), R(target))
       return {
         prompt: [p(`Une recette prévoit ${frInt(grams)} g d’un ingrédient pour ${forPeople} personnes.`)],
@@ -1012,7 +1021,10 @@ export const TEMPLATES_M06_M09: ExerciseTemplate[] = [
     seconds: 65,
     generate: (rng) => {
       const rate = rng.pick([5, 10, 12, 15, 20, 25, 40, 60])
-      const total = rng.pick([80, 120, 160, 200, 240, 300, 400, 500])
+      // Le nombre de personnes doit rester entier : « 9,6 personnes » n'a pas
+      // de sens, et la valeur passerait à BigInt qui refuse les décimaux.
+      const totals = [80, 120, 160, 200, 240, 300, 400, 500].filter((n) => (n * rate) % 100 === 0)
+      const total = rng.pick(totals)
       const part = (total * rate) / 100
       return {
         prompt: [p(`Sur ${frInt(total)} personnes interrogées, ${frInt(part)} déclarent utiliser les transports en commun.`)],
